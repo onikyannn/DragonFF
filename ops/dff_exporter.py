@@ -25,10 +25,10 @@ from .col_exporter import export_col
 
 #######################################################
 def clear_extension(string):
-    
+
     k = string.rfind('.')
     return string if k < 0 else string[:k]
-    
+
 #######################################################
 class material_helper:
 
@@ -52,8 +52,8 @@ class material_helper:
 
         texture = dff.Texture()
         texture.filters = 0 # <-- find a way to store this in Blender
-        
-        # 2.8         
+
+        # 2.8
         if self.principled:
             if self.principled.base_color_texture.image is not None:
 
@@ -62,7 +62,7 @@ class material_helper:
 
                 # Use node label if it is a substring of image name, else
                 # use image name
-                
+
                 texture.name = clear_extension(
                     node_label
                     if node_label in image_name and node_label != ""
@@ -88,13 +88,13 @@ class material_helper:
             specular = self.principled.specular
             diffuse = self.principled.roughness
             ambient = self.material.dff.ambient
-            
+
         else:
 
             specular = self.material.specular_intensity
             diffuse  = self.material.diffuse_intensity
             ambient  = self.material.ambient
-            
+
         return dff.GeomSurfPro(ambient, specular, diffuse)
 
     #######################################################
@@ -105,14 +105,14 @@ class material_helper:
 
         if not self.material.dff.export_bump_map:
             return None
-        
+
         # 2.8
         if self.principled:
-            
+
             if self.principled.normalmap_texture.image is not None:
 
                 bump_texture = dff.Texture()
-                
+
                 node_label = self.principled.node_normalmap.label
                 image_name = self.principled.normalmap_texture.image.name
 
@@ -145,14 +145,14 @@ class material_helper:
         texture = dff.Texture()
         texture.name = texture_name
         texture.filters = 0
-        
+
         return dff.EnvMapFX(coef, use_fb_alpha, texture)
 
     #######################################################
     def get_specular_material(self):
 
         props = self.material.dff
-        
+
         if not props.export_specular:
             return None
 
@@ -178,10 +178,10 @@ class material_helper:
 
         if 'dff_user_data' not in self.material:
             return None
-        
+
         return dff.UserData.from_mem(
                 self.material['dff_user_data'])
-    
+
     #######################################################
     def get_uv_animation(self):
 
@@ -194,13 +194,13 @@ class material_helper:
             return None
 
         anim.name = self.material.dff.animation_name
-        
+
         if self.principled:
             if self.principled.base_color_texture.has_mapping_node():
                 anim_data = self.material.node_tree.animation_data
-                
+
                 fps = bpy.context.scene.render.fps
-                
+
                 if anim_data:
                     for curve in anim_data.action.fcurves:
 
@@ -216,16 +216,16 @@ class material_helper:
 
                         if curve.data_path not in uv_offset:
                             continue
-                        
+
                         off = uv_offset[curve.data_path]
-                        
+
                         for i, frame in enumerate(curve.keyframe_points):
-                            
+
                             if len(anim.frames) <= i:
                                 anim.frames.append(dff.UVFrame(0,[0]*6, i-1))
 
                             _frame = list(anim.frames[i])
-                                
+
                             uv = _frame[1]
                             uv[off + curve.array_index] = frame.co[1]
 
@@ -233,9 +233,9 @@ class material_helper:
 
                             anim.frames[i] = dff.UVFrame._make(_frame)
                             anim.duration = max(anim.frames[i].time,anim.duration)
-                            
+
                     return anim
-    
+
     #######################################################
     def __init__(self, material):
         self.material = material
@@ -243,24 +243,24 @@ class material_helper:
 
         if bpy.app.version >= (2, 80, 0):
             from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
-            
+
             self.principled = PrincipledBSDFWrapper(self.material,
                                                     is_readonly=False)
-        
-        
+
+
 
 #######################################################
 def edit_bone_matrix(edit_bone):
 
     """ A helper function to return correct matrix from any
-        bone setup there might. 
-        
+        bone setup there might.
+
         Basically resets the Tail to +0.05 in Y Axis to make a correct
         prediction
     """
 
     return edit_bone.matrix
-    
+
     # What I wrote above is rubbish, by the way. This is a hack-ish solution
     original_tail = list(edit_bone.tail)
     edit_bone.tail = edit_bone.head + mathutils.Vector([0, 0.05, 0])
@@ -268,12 +268,13 @@ def edit_bone_matrix(edit_bone):
 
     edit_bone.tail = original_tail
     return matrix
-            
+
 #######################################################
 class dff_exporter:
 
     selected = False
     mass_export = False
+    separate_dff = False
     file_name = ""
     dff = None
     version = None
@@ -289,14 +290,14 @@ class dff_exporter:
         if bpy.app.version < (2, 80, 0):
             return a * b
         return a @ b
-    
+
     #######################################################
     def create_frame(obj, append=True, set_parent=True):
         self = dff_exporter
-        
+
         frame       = dff.Frame()
         frame_index = len(self.dff.frame_list)
-        
+
         # Get rid of everything before the last period
         frame.name = clear_extension(obj.name)
 
@@ -308,7 +309,7 @@ class dff_exporter:
             if name == obj.name:
                 index = self.parent_queue[name]
                 self.dff.frame_list[index].parent = frame_index
-        
+
         matrix                = obj.matrix_local
         frame.creation_flags  =  0
         frame.parent          = -1
@@ -321,10 +322,10 @@ class dff_exporter:
             frame.user_data = dff.UserData.from_mem(obj["dff_user_data"])
 
         id_array = self.bones if is_bone else self.frames
-        
+
         if set_parent and obj.parent is not None:
-            frame.parent = id_array[obj.parent.name]            
-            
+            frame.parent = id_array[obj.parent.name]
+
 
         id_array[obj.name] = frame_index
 
@@ -342,13 +343,13 @@ class dff_exporter:
 
             if b_material is None:
                 continue
-            
+
             material = dff.Material()
             helper = material_helper(b_material)
 
             material.color             = helper.get_base_color()
             material.surface_properties = helper.get_surface_properties()
-            
+
             texture = helper.get_texture()
             if texture:
                 material.textures.append(texture)
@@ -364,9 +365,9 @@ class dff_exporter:
             if anim:
                 material.add_plugin('uv_anim', anim.name)
                 self.dff.uvanim_dict.append(anim)
-                
+
             materials.append(material)
-                
+
         return materials
 
     #######################################################
@@ -378,18 +379,18 @@ class dff_exporter:
             if modifier.type == 'ARMATURE':
                 armature = modifier.object
                 break
-            
+
         if armature is None:
             return None
-        
+
         skin = dff.SkinPLG()
-        
+
         bones = armature.data.bones
         skin.num_bones = len(bones)
 
         bone_groups = {} # This variable will store the bone groups
                          # to export keyed by their indices
-                         
+
         for index, bone in enumerate(bones):
             matrix = bone.matrix_local.inverted().transposed()
             skin.bone_matrices.append(
@@ -400,7 +401,7 @@ class dff_exporter:
 
             except KeyError:
                 pass
-            
+
         # Set vertex group weights
         for vertex in mesh.vertices:
             skin.vertex_bone_indices.append([0,0,0,0])
@@ -409,11 +410,11 @@ class dff_exporter:
                 # Only upto 4 vertices per group are supported
                 if index >= 4:
                     break
-                
+
                 if group.group in bone_groups:
                     skin.vertex_bone_indices[-1][index] = bone_groups[group.group]
                     skin.vertex_bone_weights[-1][index] = group.weight
-                    
+
         return skin
 
     #######################################################
@@ -423,10 +424,10 @@ class dff_exporter:
 
         for loop in vertex.link_loops:
             start_loop = vertex.link_loops[0]
-            
+
             shared = False
             for i, layers in enumerate(layers_list):
-               
+
                 for layer in layers:
 
                     if funcs[i](start_loop[layer], loop[layer]):
@@ -436,16 +437,16 @@ class dff_exporter:
                 if shared:
                     shared_loops[loop] = True
                     break
-                
+
         return shared_loops.keys()
 
     #######################################################
     def convert_to_mesh(obj):
 
-        """ 
+        """
         A Blender 2.8 <=> 2.7 compatibility function for bpy.types.Object.to_mesh
         """
-        
+
         # Temporarily disable armature
         disabled_modifiers = []
         for modifier in obj.modifiers:
@@ -456,18 +457,18 @@ class dff_exporter:
         if bpy.app.version < (2, 80, 0):
             mesh = obj.to_mesh(bpy.context.scene, True, 'PREVIEW')
         else:
-            
+
             depsgraph   = bpy.context.evaluated_depsgraph_get()
             object_eval = obj.evaluated_get(depsgraph)
             mesh        = object_eval.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
-            
+
 
         # Re enable disabled modifiers
         for modifier in disabled_modifiers:
             modifier.show_viewport = True
 
         return mesh
-    
+
     #######################################################
     def populate_atomic(obj):
         self = dff_exporter
@@ -477,14 +478,14 @@ class dff_exporter:
 
         mesh = self.convert_to_mesh(obj)
         bm   = bmesh.new()
-        
+
         bm.from_mesh(mesh)
 
         bmesh.ops.triangulate(bm, faces=bm.faces[:])
 
         bm.verts.ensure_lookup_table()
         bm.verts.index_update()
-        
+
         # Set SkinPLG
         skin = self.init_skin_plg(obj, mesh)
 
@@ -494,13 +495,13 @@ class dff_exporter:
         # These are used to set the vertex indices for new vertices
         # created in the next loop to get rid of shared vertices.
         override_faces = {}
-        
+
         # Vertices and Normals
         i = 0
         length = len(bm.verts)
         while i < len(bm.verts):
             vertex = bm.verts[i]
-            
+
             geometry.vertices.append(dff.Vector._make(vertex.co))
             geometry.normals.append(dff.Vector._make(vertex.normal))
 
@@ -508,7 +509,7 @@ class dff_exporter:
             if i >= length:
                 i += 1
                 continue
-            
+
             shared_loops = self.get_vertex_shared_loops(
                 vertex,
                 [
@@ -520,7 +521,7 @@ class dff_exporter:
                     lambda a, b: a != b
                 ]
             )
-            
+
             # create a fork
             for loop in shared_loops:
                 face = loop.face
@@ -530,20 +531,20 @@ class dff_exporter:
                     override_faces[face.index] = [
                         vert.index for vert in face.verts
                     ]
-                
+
                 override_faces[face.index][loop.index] = len(bm.verts)
-                
+
                 # Update the SkinPLG to include the duplicated vertex
                 if skin is not None:
                     bone_indices = skin.vertex_bone_indices
                     bone_weights = skin.vertex_bone_weights
-                    
+
                     bone_indices.append(bone_indices[vertex.index])
                     bone_weights.append(bone_weights[vertex.index])
-                    
+
                 bm.verts.new(vertex.co, vertex)
                 bm.verts.ensure_lookup_table()
-            
+
             i += 1
 
         # Allocate uv layers/vertex colors array
@@ -553,7 +554,7 @@ class dff_exporter:
         # maximum will be 2. If obj.dff.uv_map1 is NOT set, the maximum cannot
         # be greater than 0.
         max_uv_layers = (obj.dff.uv_map2 + 1) * obj.dff.uv_map1
-        
+
         uv_layers_count = min(len(bm.loops.layers.uv), max_uv_layers)
         geometry.uv_layers = [[dff.TexCoords(0,0)] * len(bm.verts)
                               for i in range(uv_layers_count)]
@@ -565,15 +566,15 @@ class dff_exporter:
             extra_vert = dff.ExtraVertColorExtension(
                 [dff.RGBA(255,255,255,255)] * len(bm.verts)
             )
-            
+
         # Faces
         for face in bm.faces:
 
             verts = [vert.index for vert in face.verts]
             if face.index in override_faces:
                 verts = override_faces[face.index]
-                
-            geometry.triangles.append(                
+
+            geometry.triangles.append(
                 dff.Triangle._make((
                     verts[1], #b
                     verts[0], #a
@@ -584,13 +585,13 @@ class dff_exporter:
 
             face.loops.index_update()
             for loop in face.loops:
-                
+
                 # Set UV Coordinates for this face
                 for index, layer in enumerate(bm.loops.layers.uv.values()):
 
                     if index >= max_uv_layers:
                         break
-                    
+
                     uv = loop[layer].uv
                     geometry.uv_layers[index][verts[loop.index]] = dff.TexCoords(
                         uv.x, 1 - uv.y #UV Coordinates are flipped in the Y Axis
@@ -598,21 +599,21 @@ class dff_exporter:
 
                 # Set prelit faces for this face
                 for index, layer in enumerate(bm.loops.layers.color.values()):
-                    
+
                     color = list(loop[layer])
                     if len(color) < 4:
                         color.append(1)
-                        
+
                     prelit_color = dff.RGBA._make(
                         int(c * 255) for c in color
                     )
-                        
+
                     if index == 0 and has_prelit_colors:
                         geometry.prelit_colors[verts[loop.index]] = prelit_color
-                            
+
                     elif index == 1 and has_night_colors:
                         extra_vert.colors[verts[loop.index]] = prelit_color
-                
+
         self.create_frame(obj)
 
         # Custom Split Normals
@@ -620,15 +621,15 @@ class dff_exporter:
 
         for loop in mesh.loops:
             geometry.normals[loop.vertex_index] = loop.normal
-        
+
         # Bounding sphere
         sphere_center = 0.125 * sum(
             (mathutils.Vector(b) for b in obj.bound_box),
             mathutils.Vector()
         )
         sphere_center = self.multiply_matrix(obj.matrix_world, sphere_center)
-        sphere_radius = 1.732 * max(*obj.dimensions) / 2        
-        
+        sphere_radius = 1.732 * max(*obj.dimensions) / 2
+
         geometry.bounding_sphere = dff.Sphere._make(
             list(sphere_center) + [sphere_radius]
         )
@@ -640,7 +641,7 @@ class dff_exporter:
         geometry.export_flags['write_mesh_plg'] = obj.dff.export_binsplit
         geometry.export_flags['light'] = obj.dff.light
         geometry.export_flags['modulate_color'] = obj.dff.modulate_color
-        
+
         if skin is not None:
             geometry.extensions['skin'] = skin
         if extra_vert:
@@ -655,13 +656,13 @@ class dff_exporter:
                     geometry.pipeline = int(obj.dff.custom_pipeline, 0)
                 else:
                     geometry.pipeline = int(obj.dff.pipeline, 0)
-                    
+
         except ValueError:
             print("Invalid (Custom) Pipeline")
-            
+
         # Add Geometry to list
         self.dff.geometry_list.append(geometry)
-        
+
         # Create Atomic from geometry and frame
         geometry_index = len(self.dff.geometry_list) - 1
         frame_index    = len(self.dff.frame_list) - 1
@@ -677,30 +678,30 @@ class dff_exporter:
     def calculate_parent_depth(obj):
         parent = obj.parent
         depth = 0
-        
+
         while parent is not None:
             parent = parent.parent
             depth += 1
 
-        return depth        
+        return depth
 
     #######################################################
     def check_armature_parent(obj):
 
         # This function iterates through all modifiers of the parent's modifier,
         # and check if its parent has an armature modifier set to obj.
-        
+
         for modifier in obj.parent.modifiers:
             if modifier.type == 'ARMATURE':
                 if modifier.object == obj:
                     return True
 
         return False
-    
+
     #######################################################
     def export_armature(obj):
         self = dff_exporter
-        
+
         for index, bone in enumerate(obj.data.bones):
 
             # Create a special bone (contains information for all subsequent bones)
@@ -717,7 +718,7 @@ class dff_exporter:
                     bone["bone_id"],
                     len(obj.data.bones)
                 )
-                
+
                 # Make bone array in the root bone
                 for _index, _bone in enumerate(obj.data.bones):
                     bone_data.bones.append(
@@ -743,17 +744,17 @@ class dff_exporter:
             )
             frame.bone_data = bone_data
             self.dff.frame_list.append(frame)
-        
+
     #######################################################
     def export_objects(objects, name=None):
         self = dff_exporter
-        
+
         self.dff = dff.dff()
 
         # Skip empty collections
         if len(objects) < 1:
             return
-        
+
         for obj in objects:
 
             # create atomic in this case
@@ -765,8 +766,8 @@ class dff_exporter:
                 self.create_frame(obj)
 
             elif obj.type == "ARMATURE":
-                self.export_armature(obj)                    
-        
+                self.export_armature(obj)
+
         # Collision
         if self.export_coll:
             mem = export_col({
@@ -780,7 +781,7 @@ class dff_exporter:
             })
 
             if len(mem) != 0:
-               self.dff.collisions = [mem] 
+               self.dff.collisions = [mem]
 
         if name is None:
             self.dff.write_file(self.file_name, self.version )
@@ -792,15 +793,15 @@ class dff_exporter:
         if bpy.app.version < (2, 80, 0):
             return obj.select
         return obj.select_get()
-            
+
     #######################################################
     def export_dff(filename):
         self = dff_exporter
 
         self.file_name = filename
-        
+
         objects = {}
-        
+
         # Export collections
         if bpy.app.version < (2, 80, 0):
             collections = [bpy.data]
@@ -808,33 +809,39 @@ class dff_exporter:
         else:
             root_collection = bpy.context.scene.collection
             collections = root_collection.children.values() + [root_collection]
-            
+
         for collection in collections:
             for obj in collection.objects:
-                    
+
                 if not self.selected or obj.select_get():
                     objects[obj] = self.calculate_parent_depth(obj)
 
             if self.mass_export:
-                objects = sorted(objects, key=objects.get)
-                self.export_objects(objects,
-                                    collection.name)
+                if self.separate_dff:
+                    for obj in collection.objects:
+                        self.export_objects([obj], obj.name +  '.dff')
+                else:
+                    objects = sorted(objects, key=objects.get)
+                    self.export_objects(objects,
+                                        collection.name)
+
                 objects     = {}
                 self.frames = {}
                 self.bones  = {}
                 self.collection = collection
 
         if not self.mass_export:
-                
+
             objects = sorted(objects, key=objects.get)
             self.export_objects(objects)
-                
+
 #######################################################
 def export_dff(options):
 
     # Shadow Function
     dff_exporter.selected    = options['selected']
     dff_exporter.mass_export = options['mass_export']
+    dff_exporter.separate_dff = options['separate_dff']
     dff_exporter.path        = options['directory']
     dff_exporter.version     = options['version']
     dff_exporter.export_coll = options['export_coll']

@@ -6,7 +6,7 @@ from ..ops import dff_exporter, dff_importer, col_importer
 
 #######################################################
 class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
-    
+
     bl_idname      = "export_dff.scene"
     bl_description = "Export a Renderware DFF or COL File"
     bl_label       = "DragonFF DFF (.dff)"
@@ -16,10 +16,10 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
                                               maxlen=1024,
                                               default="",
                                               subtype='FILE_PATH')
-    
+
     filter_glob    : bpy.props.StringProperty(default="*.dff;*.col",
                                               options={'HIDDEN'})
-    
+
     directory      : bpy.props.StringProperty(maxlen=1024,
                                               default="",
                                               subtype='FILE_PATH')
@@ -31,24 +31,32 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
 
     export_coll     : bpy.props.BoolProperty(
         name        = "Export Collision",
-        default     = True
+        default     = False
     )
-    
+
     only_selected   :  bpy.props.BoolProperty(
         name        = "Only Selected",
         default     = False
     )
+
     reset_positions :  bpy.props.BoolProperty(
         name        = "Preserve Positions",
         description = "Don't set object positions to (0,0,0)",
         default     = False
     )
+
+    separate_dff :  bpy.props.BoolProperty(
+        name        = "Separate DFF",
+        description = "Create separate dff for each object",
+        default     = True
+    )
+
     export_version  : bpy.props.EnumProperty(
         items =
         (
-            ('0x33002', "GTA 3 (v3.3.0.2)", "Grand Theft Auto 3 PC (v3.3.0.2)"),
-            ('0x34003', "GTA VC (v3.4.0.3)", "Grand Theft Auto VC PC (v3.4.0.3)"),
             ('0x36003', "GTA SA (v3.6.0.3)", "Grand Theft Auto SA PC (v3.6.0.3)"),
+            ('0x34003', "GTA VC (v3.4.0.3)", "Grand Theft Auto VC PC (v3.4.0.3)"),
+            ('0x33002', "GTA 3 (v3.3.0.2)", "Grand Theft Auto 3 PC (v3.3.0.2)"),
             ('custom', "Custom", "Custom RW Version")
         ),
         name = "Version Export"
@@ -70,7 +78,7 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
                 return False
 
         return True
-    
+
     #######################################################
     def draw(self, context):
         layout = self.layout
@@ -85,6 +93,9 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
             row = box.row()
             row.prop(self, "reset_positions")
 
+            row = box.row()
+            row.prop(self, "separate_dff")
+
         layout.prop(self, "only_selected")
         layout.prop(self, "export_coll")
         layout.prop(self, "export_version")
@@ -93,7 +104,7 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
             col = layout.column()
             col.alert = not self.verify_rw_version()
             icon = "ERROR" if col.alert else "NONE"
-            
+
             col.prop(self, "custom_version", icon=icon)
         return None
 
@@ -102,7 +113,7 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
 
         if self.export_version != "custom":
             return int(self.export_version, 0)
-        
+
         else:
             return int(
                 "0x%c%c%c0%c" % (self.custom_version[0],
@@ -110,7 +121,7 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
                                  self.custom_version[4],
                                  self.custom_version[6]),
                 0)
-    
+
     #######################################################
     def execute(self, context):
 
@@ -118,13 +129,14 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
             if not self.verify_rw_version():
                 self.report({"ERROR_INVALID_INPUT"}, "Invalid RW Version")
                 return {'FINISHED'}
-        
+
         dff_exporter.export_dff(
             {
                 "file_name"      : self.filepath,
                 "directory"      : self.directory,
                 "selected"       : self.only_selected,
                 "mass_export"    : self.mass_export,
+                "separate_dff"   : self.separate_dff,
                 "version"        : self.get_selected_rw_version(),
                 "export_coll"    : self.export_coll
             }
@@ -133,7 +145,7 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
         # Save settings of the export in scene custom properties for later
         context.scene['dragonff_imported_version'] = self.export_version
         context.scene['dragonff_custom_version']   = self.custom_version
-            
+
         return {'FINISHED'}
 
     #######################################################
@@ -142,25 +154,25 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
             self.export_version = context.scene['dragonff_imported_version']
         if 'dragonff_custom_version' in context.scene:
             self.custom_version = context.scene['dragonff_custom_version']
-        
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
 #######################################################
 class IMPORT_OT_dff(bpy.types.Operator, ImportHelper):
-    
+
     bl_idname      = "import_scene.dff"
     bl_description = 'Import a Renderware DFF or COL File'
     bl_label       = "DragonFF DFF (.dff)"
 
     filter_glob   : bpy.props.StringProperty(default="*.dff;*.col",
                                               options={'HIDDEN'})
-    
+
     directory     : bpy.props.StringProperty(maxlen=1024,
                                               default="",
                                               subtype='FILE_PATH',
                                               options={'HIDDEN'})
-    
+
     # Stores all the file names to read (not just the firsst)
     files : bpy.props.CollectionProperty(
         type    = bpy.types.OperatorFileListElement,
@@ -176,7 +188,7 @@ class IMPORT_OT_dff(bpy.types.Operator, ImportHelper):
          options     = {'HIDDEN'}
      )
 
-    
+
     load_txd :  bpy.props.BoolProperty(
         name        = "Load TXD file",
         default     = True
@@ -207,7 +219,7 @@ class IMPORT_OT_dff(bpy.types.Operator, ImportHelper):
         name        = "Group Similar Materials",
         default     = True
     )
-    
+
     image_ext : bpy.props.EnumProperty(
         items =
         (
@@ -229,29 +241,29 @@ class IMPORT_OT_dff(bpy.types.Operator, ImportHelper):
 
         layout.prop(self, "load_txd")
         layout.prop(self, "connect_bones")
-        
+
         box = layout.box()
         box.prop(self, "load_images")
         if self.load_images:
             box.prop(self, "image_ext")
-        
+
         layout.prop(self, "read_mat_split")
         layout.prop(self, "remove_doubles")
         layout.prop(self, "group_materials")
-        
+
     #######################################################
     def execute(self, context):
-        
+
         for file in [os.path.join(self.directory,file.name) for file in self.files] if self.files else [self.filepath]:
             if file.endswith(".col"):
                 col_importer.import_col_file(file, os.path.basename(file))
-                            
+
             else:
                 # Set image_ext to none if scan images is disabled
                 image_ext = self.image_ext
                 if not self.load_images:
                     image_ext = None
-                    
+
                 importer = dff_importer.import_dff(
                     {
                         'file_name'      : file,
@@ -276,11 +288,11 @@ class IMPORT_OT_dff(bpy.types.Operator, ImportHelper):
                     context.scene['dragonff_custom_version'] = "{}.{}.{}.{}".format(
                         *(version[i] for i in [2,3,4,6])
                     ) #convert hex to x.x.x.x format
-                
+
         return {'FINISHED'}
 
     #######################################################
     def invoke(self, context, event):
-        
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
