@@ -817,11 +817,11 @@ class dff_exporter:
                     objects[obj] = self.calculate_parent_depth(obj)
 
             if self.mass_export:
+                objects = sorted(objects, key=objects.get)
                 if self.separate_dff:
-                    for obj in collection.objects:
-                        self.export_objects([obj], obj.name +  '.dff')
+                    for obj in objects:
+                        self.export_objects([obj], obj.name + '.dff')
                 else:
-                    objects = sorted(objects, key=objects.get)
                     self.export_objects(objects,
                                         collection.name)
 

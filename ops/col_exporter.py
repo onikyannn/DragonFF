@@ -30,6 +30,7 @@ class col_exporter:
     collection = None
     memory = False # Whether it will return a bytes file (not write to a file)
     only_selected = False
+    separate_col = False
 
     #######################################################
     def _process_mesh(obj, verts, faces):
@@ -41,7 +42,7 @@ class col_exporter:
         bmesh.ops.triangulate(bm, faces=bm.faces[:])
 
         vert_offset = len(verts)
-        
+
         # Vertices
         for vert in bm.verts:
             verts.append((*vert.co,))
@@ -56,7 +57,7 @@ class col_exporter:
                 surface[1] = mat.dff.col_flags
                 surface[2] = mat.dff.col_brightness
                 surface[3] = mat.dff.col_light
-                
+
             except IndexError:
                 pass
 
@@ -85,14 +86,14 @@ class col_exporter:
             ]
 
         dimensions = obj.dimensions
-            
+
         # Empties don't have a dimensions array
         if obj.type == 'EMPTY':
-            
+
             # Multiplied by 2 because empty_display_size is a radius
             dimensions = [
                 max(x * obj.empty_display_size * 2 for x in obj.scale)] * 3
-        
+
         upper_bounds = [x + (y/2) for x, y in zip(obj.location, dimensions)]
         lower_bounds = [x - (y/2) for x, y in zip(obj.location, dimensions)]
 
@@ -122,14 +123,14 @@ class col_exporter:
                                        min = col.TVector(*rect_max),
                                        center = col.TVector(*center),
                                        radius = radius
-        )   
-        
+        )
+
         pass
-        
+
     #######################################################
     def _process_spheres(obj):
         self = col_exporter
-        
+
         radius = max(x * obj.empty_display_size for x in obj.scale)
         centre = col.TVector(*obj.location)
         surface = col.TSurface(
@@ -143,13 +144,13 @@ class col_exporter:
                                          surface=surface,
                                          center=centre
         ))
-        
+
         pass
-                
+
     #######################################################
     def _process_obj(obj):
         self = col_exporter
-        
+
         if obj.type == 'MESH':
             # Meshes
             if obj.dff.type == 'SHA':
@@ -157,61 +158,75 @@ class col_exporter:
                                    self.coll.shadow_verts,
                                    self.coll.shadow_faces
                 )
-                
+
             else:
                 self._process_mesh(obj,
                                    self.coll.mesh_verts,
                                    self.coll.mesh_faces
                 )
-                    
+
         elif obj.type == 'EMPTY':
             self._process_spheres(obj)
-        
+
         self._update_bounds(obj)
-        
-    
+
+
     #######################################################
     def export_col(name):
         self = col_exporter
-        self.file_name = name
 
         col.Sections.init_sections(self.version)
 
-        self.coll = col.ColModel()
-        self.coll.version = self.version
-        self.coll.model_name = os.path.basename(name)
+        if self.separate_col:
+            objects = bpy.data.objects
+            for obj in objects:
+                if not self.only_selected or obj.select_get():
+                    self.coll = col.ColModel()
+                    self.coll.version = self.version
+                    self.coll.model_name = obj.name
+                    self._process_obj(obj)
+                    self._convert_bounds()
+                    col.coll(self.coll).write_file(self.path + '/' + obj.name + '.col')
 
-        objects = bpy.data.objects
-        if self.collection is not None:
-            objects = self.collection.objects
+        else:
 
-        total_objects = 0
-        for obj in objects:
-            if obj.dff.type == 'COL' or obj.dff.type == 'SHA':
+            self.file_name = name
+            self.coll = col.ColModel()
+            self.coll.version = self.version
+            self.coll.model_name = os.path.basename(name)
+
+            objects = bpy.data.objects
+            if self.collection is not None:
+                objects = self.collection.objects
+
+            total_objects = 0
+            for obj in objects:
                 if not self.only_selected or obj.select_get():
                     self._process_obj(obj)
                     total_objects += 1
-                
-        self._convert_bounds()
-        
-        if self.memory:
-            if total_objects > 0:
-                return col.coll(self.coll).write_memory()
-            return b''
 
-        col.coll(self.coll).write_file(name)
+            self._convert_bounds()
+
+            if self.memory:
+                if total_objects > 0:
+                    return col.coll(self.coll).write_memory()
+                return b''
+
+            col.coll(self.coll).write_file(name)
 
 #######################################################
 def export_col(options):
-    
+
+    col_exporter.path = options['directory']
     col_exporter.memory = options['memory']
     col_exporter.version = options['version']
     col_exporter.collection = options['collection']
     col_exporter.only_selected = options['only_selected']
+    col_exporter.separate_col = options['separate_col']
 
     if options['mass_export']:
         output = b'';
-        
+
         root_collection = bpy.context.scene.collection
         collections = root_collection.children.values() + [root_collection]
         col_exporter.memory = True
@@ -224,11 +239,17 @@ def export_col(options):
             # for example vehicles.col.infernus changes to just infernus
             try:
                 name = name[name.index(".col.") + 5:]
-                
+
             except ValueError:
                 pass
-            
-            output += col_exporter.export_col(name)
+
+            if options['separate_col']:
+                col_exporter.export_col(name)
+            else:
+                output += col_exporter.export_col(name)
+
+        if options['separate_col']:
+            return
 
         if options['memory']:
             return output
@@ -236,5 +257,5 @@ def export_col(options):
         with open(options['file_name'], mode='wb') as file:
             file.write(output)
             return
-        
+
     return col_exporter.export_col(options['file_name'])
