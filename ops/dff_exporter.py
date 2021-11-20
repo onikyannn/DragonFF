@@ -283,6 +283,7 @@ class dff_exporter:
     parent_queue = {}
     collection = None
     export_coll = False
+    apply_lightmap = False
 
     #######################################################
     def multiply_matrix(a, b):
@@ -343,6 +344,19 @@ class dff_exporter:
 
             if b_material is None:
                 continue
+
+            if self.apply_lightmap:
+                b_material.dff.export_env_map = True
+                b_material.dff.export_reflection = True
+
+                b_material.dff.env_map_tex = obj.name
+                b_material.dff.env_map_coef = 1
+
+                b_material.dff.reflection_scale_x = 1
+                b_material.dff.reflection_scale_y = 1
+                b_material.dff.reflection_offset_y = 0
+                b_material.dff.reflection_offset_x = 0
+                b_material.dff.reflection_intensity = 1
 
             material = dff.Material()
             helper = material_helper(b_material)
@@ -473,6 +487,14 @@ class dff_exporter:
     def populate_atomic(obj):
         self = dff_exporter
 
+        self.max_uv_layers = (obj.dff.uv_map2 + 1) * obj.dff.uv_map1
+
+        if self.apply_lightmap:
+            self.max_uv_layers += 1
+            if len(obj.data.uv_layers) < 3:
+                obj.data.uv_layers[1].active = True
+                obj.data.uv_layers.new(name="lightmap_uv",do_init=True)
+
         # Create geometry
         geometry = dff.Geometry()
 
@@ -553,9 +575,7 @@ class dff_exporter:
         # If obj.dff.uv_map2 is set (i.e second UV map WILL be exported), the
         # maximum will be 2. If obj.dff.uv_map1 is NOT set, the maximum cannot
         # be greater than 0.
-        max_uv_layers = (obj.dff.uv_map2 + 1) * obj.dff.uv_map1
-
-        uv_layers_count = min(len(bm.loops.layers.uv), max_uv_layers)
+        uv_layers_count = min(len(bm.loops.layers.uv), self.max_uv_layers)
         geometry.uv_layers = [[dff.TexCoords(0,0)] * len(bm.verts)
                               for i in range(uv_layers_count)]
         extra_vert = None
@@ -589,7 +609,7 @@ class dff_exporter:
                 # Set UV Coordinates for this face
                 for index, layer in enumerate(bm.loops.layers.uv.values()):
 
-                    if index >= max_uv_layers:
+                    if index >= self.max_uv_layers:
                         break
 
                     uv = loop[layer].uv
@@ -845,5 +865,6 @@ def export_dff(options):
     dff_exporter.path        = options['directory']
     dff_exporter.version     = options['version']
     dff_exporter.export_coll = options['export_coll']
+    dff_exporter.apply_lightmap = options['apply_lightmap']
 
     dff_exporter.export_dff(options['file_name'])

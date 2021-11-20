@@ -34,6 +34,11 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
         default     = False
     )
 
+    apply_lightmap     : bpy.props.BoolProperty(
+        name        = "Apply lightmap",
+        default     = False
+    )
+
     only_selected   :  bpy.props.BoolProperty(
         name        = "Only Selected",
         default     = False
@@ -98,6 +103,7 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
 
         layout.prop(self, "only_selected")
         layout.prop(self, "export_coll")
+        layout.prop(self, "apply_lightmap")
         layout.prop(self, "export_version")
 
         if self.export_version == 'custom':
@@ -138,7 +144,8 @@ class EXPORT_OT_dff(bpy.types.Operator, ExportHelper):
                 "mass_export"    : self.mass_export,
                 "separate_dff"   : self.separate_dff,
                 "version"        : self.get_selected_rw_version(),
-                "export_coll"    : self.export_coll
+                "export_coll"    : self.export_coll,
+                "apply_lightmap" : self.apply_lightmap
             }
         )
 
