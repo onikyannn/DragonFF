@@ -349,7 +349,7 @@ class dff_exporter:
                 b_material.dff.export_env_map = True
                 b_material.dff.export_reflection = True
 
-                b_material.dff.env_map_tex = obj.name
+                b_material.dff.env_map_tex = obj.name + "_d"
                 b_material.dff.env_map_coef = 1
 
                 b_material.dff.reflection_scale_x = 1
