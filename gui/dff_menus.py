@@ -20,15 +20,17 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
     def draw_col_menu(self, context):
 
         layout = self.layout
+        box = layout.box()
+        box.label(text="Collision data")
         settings = context.material.dff
 
         props = [["col_mat_index", "Material"],
                  ["col_flags", "Flags"],
                  ["col_brightness", "Brightness"],
                  ["col_light", "Light"]]
-        
+
         for prop in props:
-            self.draw_labelled_prop(layout.row(), settings, [prop[0]], prop[1])
+            self.draw_labelled_prop(box.row(), settings, [prop[0]], prop[1])
 
     #######################################################
     def draw_labelled_prop(self, row, settings, props, label, text=""):
@@ -36,7 +38,7 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
         row.label(text=label)
         for prop in props:
             row.prop(settings, prop, text=text)
-        
+
     #######################################################
     def draw_env_map_box(self, context, box):
 
@@ -56,7 +58,7 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
 
         settings = context.material.dff
         box.row().prop(settings, "export_bump_map")
-        
+
         if settings.export_bump_map:
             box.row().prop(settings, "bump_map_tex", text="Height Map Texture")
 
@@ -68,8 +70,8 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
         box.row().prop(settings, "export_animation")
         if settings.export_animation:
             box.row().prop(settings, "animation_name", text="Name")
-            
-            
+
+
     #######################################################
     def draw_refl_box(self, context, box):
 
@@ -100,7 +102,7 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
                 box.row(), settings, ["specular_level"], "Level"
             )
             box.row().prop(settings, "specular_texture", text="Texture")
-        
+
     #######################################################
     def draw_mesh_menu(self, context):
 
@@ -111,7 +113,7 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
 
         # This is for conveniently setting the base colour from the settings
         # without removing the texture node
-        
+
         try:
 
             if bpy.app.version >= (2, 80, 0):
@@ -120,24 +122,24 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
             else:
                 prop = context.material
                 prop_val = "diffuse_color"
-                
+
             row = layout.row()
             row.prop(
                 prop,
                 prop_val,
                 text="Color")
-            
+
             row.prop(settings,
                      "preset_mat_cols",
                      text="",
                      icon="MATERIAL",
                      icon_only=True
             )
-            
+
         except Exception:
             pass
-                
-        
+
+
         self.draw_env_map_box  (context, layout.box())
         self.draw_bump_map_box (context, layout.box())
         self.draw_refl_box     (context, layout.box())
@@ -150,8 +152,8 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
         try:
             color = eval(context.material.dff.preset_mat_cols)
             color = [i / 255 for i in color]
-                
-            if bpy.app.version >= (2, 80, 0):                
+
+            if bpy.app.version >= (2, 80, 0):
                 node = context.material.node_tree.nodes["Principled BSDF"]
                 node.inputs[0].default_value = color
 
@@ -160,18 +162,15 @@ class MATERIAL_PT_dffMaterials(bpy.types.Panel):
 
         except Exception as e:
             print(e)
-        
+
     #######################################################
     def draw(self, context):
 
         if not context.material or not context.material.dff:
             return
-        
-        if context.object.dff.type == 'COL':
-            self.draw_col_menu(context)
-            return
 
         self.draw_mesh_menu(context)
+        self.draw_col_menu(context)
 
 #######################################################@
 class DFF_MT_ExportChoice(bpy.types.Menu):
@@ -182,8 +181,8 @@ class DFF_MT_ExportChoice(bpy.types.Menu):
                              text="DragonFF DFF (.dff)")
         self.layout.operator(EXPORT_OT_col.bl_idname,
                              text="DragonFF Collision (.col)")
-            
-        
+
+
 #######################################################
 def import_dff_func(self, context):
     self.layout.operator(IMPORT_OT_dff.bl_idname, text="DragonFF DFF (.dff)")
@@ -203,7 +202,7 @@ class OBJECT_PT_dffObjects(bpy.types.Panel):
 
     #######################################################
     def draw_labelled_prop(self, row, settings, props, label, text=""):
-        
+
         row.label(text=label)
         for prop in props:
             row.prop(settings, prop, text=text)
@@ -218,7 +217,7 @@ class OBJECT_PT_dffObjects(bpy.types.Panel):
             return False
 
         return True
-            
+
     #######################################################
     def draw_mesh_menu(self, context):
 
@@ -229,25 +228,25 @@ class OBJECT_PT_dffObjects(bpy.types.Panel):
         box.prop(settings, "pipeline", text="Pipeline")
         if settings.pipeline == 'CUSTOM':
             col = box.column()
-            
+
             col.alert = not self.validate_pipeline(settings.custom_pipeline)
             icon = "ERROR" if col.alert else "NONE"
 
             col.prop(settings, "custom_pipeline", icon=icon, text="Custom Pipeline")
-        
+
         box.prop(settings, "export_normals", text="Export Normals")
         box.prop(settings, "export_binsplit", text="Export Bin Mesh PLG")
         box.prop(settings, "light", text="Enable Lighting")
         box.prop(settings, "modulate_color", text="Enable Modulate Material Color")
-            
-        properties = [         
+
+        properties = [
             ["day_cols", "Day Vertex Colours"],
             ["night_cols", "Night Vertex Colours"],
         ]
 
         box = layout.box()
         box.label(text="Export Vertex Colours")
-        
+
         for property in properties:
             box.prop(settings, property[0], text=property[1])
 
@@ -267,14 +266,14 @@ class OBJECT_PT_dffObjects(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Material Surface")
-        
+
         box.prop(settings, "col_material", text="Material")
         box.prop(settings, "col_flags", text="Flags")
         box.prop(settings, "col_brightness", text="Brightness")
         box.prop(settings, "col_light", text="Light")
 
         pass
-            
+
     #######################################################
     def draw_obj_menu(self, context):
 
@@ -290,21 +289,21 @@ class OBJECT_PT_dffObjects(bpy.types.Panel):
         elif settings.type == 'COL':
             if context.object.type == 'EMPTY':
                 self.draw_col_menu(context)
-    
+
     #######################################################
     def draw(self, context):
 
         if not context.object.dff:
             return
-        
+
         self.draw_obj_menu(context)
-    
+
 # Custom properties
 #######################################################
 class DFFMaterialProps(bpy.types.PropertyGroup):
 
     ambient           : bpy.props.FloatProperty  (name="Ambient Shading", default=1)
-    
+
     # Environment Map
     export_env_map    : bpy.props.BoolProperty   (name="Environment Map")
     env_map_tex       : bpy.props.StringProperty ()
@@ -322,7 +321,7 @@ class DFFMaterialProps(bpy.types.PropertyGroup):
     reflection_offset_x  : bpy.props.FloatProperty ()
     reflection_offset_y  : bpy.props.FloatProperty ()
     reflection_intensity : bpy.props.FloatProperty ()
-    
+
     # Specularity
     export_specular  : bpy.props.BoolProperty(name="Specular Material")
     specular_level   : bpy.props.FloatProperty  ()
@@ -367,10 +366,10 @@ class DFFMaterialProps(bpy.types.PropertyGroup):
         ),
         update = MATERIAL_PT_dffMaterials.set_preset_color
     )
-    
+
     def register():
         bpy.types.Material.dff = bpy.props.PointerProperty(type=DFFMaterialProps)
-        
+
 #######################################################
 class DFFObjectProps(bpy.types.PropertyGroup):
 
@@ -400,7 +399,7 @@ class DFFObjectProps(bpy.types.PropertyGroup):
         description="Select the Engine rendering pipeline"
     )
     custom_pipeline : bpy.props.StringProperty(name="Custom Pipeline")
-    
+
     export_normals : bpy.props.BoolProperty(
         default=True,
         description="Whether Normals will be exported. (Disable for Map objects)"
@@ -415,26 +414,26 @@ class DFFObjectProps(bpy.types.PropertyGroup):
         default=True,
         description="Enable rpGEOMETRYMODULATEMATERIALCOLOR flag"
     )
-    
+
     uv_map1 : bpy.props.BoolProperty(
         default=True,
         description="First UV Map will be exported")
-    
+
     uv_map2 : bpy.props.BoolProperty(
         default=True,
         description="Second UV Map will be exported"
     )
-    
+
     day_cols : bpy.props.BoolProperty(
         default=True,
         description="Whether Day Vertex Prelighting Colours will be exported"
     )
-    
+
     night_cols : bpy.props.BoolProperty(
         default=True,
         description="Extra prelighting colours. (Tip: Disable export normals)"
     )
-    
+
     export_binsplit : bpy.props.BoolProperty(
         default=True,
         description="Enabling will increase file size, but will increase\
@@ -455,12 +454,12 @@ compatibiility with DFF Viewers"
         default = 0,
         description = "Brightness used for the Sphere/Cone"
     )
-    
+
     col_light : bpy.props.IntProperty(
         default = 0,
         description = "Light used for the Sphere/Cone"
     )
-    
-    #######################################################    
+
+    #######################################################
     def register():
         bpy.types.Object.dff = bpy.props.PointerProperty(type=DFFObjectProps)
