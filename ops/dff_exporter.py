@@ -25,9 +25,12 @@ from .col_exporter import export_col
 
 #######################################################
 def clear_extension(string):
-
     k = string.rfind('.')
-    return string if k < 0 else string[:k]
+    if k < 0:
+        return string
+    if not string[k+1:].isnumeric():
+        return string[:k]
+    return test(string[:k])
 
 #######################################################
 class material_helper:
