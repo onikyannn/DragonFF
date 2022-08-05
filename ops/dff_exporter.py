@@ -28,9 +28,7 @@ def clear_extension(string):
     k = string.rfind('.')
     if k < 0:
         return string
-    if not string[k+1:].isnumeric():
-        return string[:k]
-    return test(string[:k])
+    return clear_extension(string[:k])
 
 #######################################################
 class material_helper:
